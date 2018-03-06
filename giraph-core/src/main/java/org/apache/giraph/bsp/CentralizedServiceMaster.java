@@ -20,6 +20,7 @@ package org.apache.giraph.bsp;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.giraph.master.AggregatorToGlobalCommTranslation;
 import org.apache.giraph.master.MasterCompute;
@@ -130,6 +131,8 @@ public interface CentralizedServiceMaster<I extends WritableComparable,
   void setJobState(ApplicationState state,
     long applicationAttempt,
     long desiredSuperstep);
+
+  void writeSuperstepTimeIntoHDFS(Map<Long, List<Long>> superstepSecsMap) throws IOException;
 
   /**
    * Get handler for global communication

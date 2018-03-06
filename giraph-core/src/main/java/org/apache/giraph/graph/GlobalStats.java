@@ -34,6 +34,8 @@ public class GlobalStats implements Writable {
   private long vertexCount = 0;
   /** All finished vertices in the last superstep */
   private long finishedVertexCount = 0;
+  /** All computed vertices in the last superstep */
+  private long computedVertexCount = 0;
   /** All edges in the last superstep */
   private long edgeCount = 0;
   /** All messages sent in the last superstep */
@@ -63,6 +65,7 @@ public class GlobalStats implements Writable {
   public void addPartitionStats(PartitionStats partitionStats) {
     this.vertexCount += partitionStats.getVertexCount();
     this.finishedVertexCount += partitionStats.getFinishedVertexCount();
+    this.computedVertexCount += partitionStats.getComputedVertexCount();
     this.edgeCount += partitionStats.getEdgeCount();
   }
 
@@ -72,6 +75,10 @@ public class GlobalStats implements Writable {
 
   public long getFinishedVertexCount() {
     return finishedVertexCount;
+  }
+
+  public long getComputedVertexCount() {
+    return computedVertexCount;
   }
 
   public long getEdgeCount() {
@@ -159,6 +166,7 @@ public class GlobalStats implements Writable {
   public void readFields(DataInput input) throws IOException {
     vertexCount = input.readLong();
     finishedVertexCount = input.readLong();
+    computedVertexCount = input.readLong();
     edgeCount = input.readLong();
     messageCount = input.readLong();
     messageBytesCount = input.readLong();
@@ -177,6 +185,7 @@ public class GlobalStats implements Writable {
   public void write(DataOutput output) throws IOException {
     output.writeLong(vertexCount);
     output.writeLong(finishedVertexCount);
+    output.writeLong(computedVertexCount);
     output.writeLong(edgeCount);
     output.writeLong(messageCount);
     output.writeLong(messageBytesCount);
@@ -193,7 +202,8 @@ public class GlobalStats implements Writable {
   @Override
   public String toString() {
     return "(vtx=" + vertexCount + ",finVtx=" +
-        finishedVertexCount + ",edges=" + edgeCount + ",msgCount=" +
+        finishedVertexCount + ",computedVertexCount=" + computedVertexCount +
+            ",edges=" + edgeCount + ",msgCount=" +
         messageCount + ",msgBytesCount=" +
           messageBytesCount + ",haltComputation=" + haltComputation +
         ", checkpointStatus=" + checkpointStatus + ')';

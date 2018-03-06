@@ -130,6 +130,8 @@ end[PURE_YARN]*/
         " -ca <param1>=<value1>,<param2>=<value2> -ca <param3>=<value3> etc." +
         " It can appear multiple times, and the last one has effect" +
         " for the same param.");
+    OPTIONS.addOption("mm", "monitorMachine", true, "the ip address:port of machine" +
+            "that used to monitor the giraph execution");
   }
 
   /**
@@ -440,6 +442,9 @@ end[PURE_YARN]*/
             "InputFormat does not require one.");
         }
       }
+    }
+    if(cmd.hasOption("mm")){
+      conf.setMonitorAddressAndPort(cmd.getOptionValue("mm"));
     }
 
     // YARN-ONLY OPTIONS

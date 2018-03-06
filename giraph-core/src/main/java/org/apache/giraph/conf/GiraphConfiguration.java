@@ -129,6 +129,18 @@ public class GiraphConfiguration extends Configuration
   }
 
   /**
+   * Set the ip address:port of machine that used to monitor the giraph execution
+   * @param AddressAndPort
+   */
+  public void setMonitorAddressAndPort(String AddressAndPort) {
+    MONITOR_MACHINE_IP_ADDRESS_PORT.set(this, AddressAndPort);
+  }
+
+  public String getMonitorAddressAndPort(){
+    return MONITOR_MACHINE_IP_ADDRESS_PORT.get(this);
+  }
+
+  /**
    * Set the vertex value factory class
    *
    * @param vertexValueFactoryClass Creates default vertex values

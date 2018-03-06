@@ -26,14 +26,8 @@ import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 import net.iharder.Base64;
@@ -310,6 +304,28 @@ public class BspServiceMaster<I extends WritableComparable,
     getGraphTaskManager().getJobProgressTracker().logFailure(reason);
     setJobState(ApplicationState.FAILED, -1, -1, false);
     failJob(new IllegalStateException(reason));
+  }
+
+  @Override
+  public void writeSuperstepTimeIntoHDFS(Map<Long, List<Long>> superstepSecsMap) throws IOException{
+    SimpleDateFormat format = new SimpleDateFormat("HH:mm:ss");
+
+    StringBuffer output = new StringBuffer();
+    output.append("\nsuperstep\tstartSuperstepMillis\tsuperstepMillis(sec)\n");
+    for(Map.Entry<Long, List<Long>> entry : superstepSecsMap.entrySet()){
+      output.append(entry.getKey().longValue() + "\t"
+              + format.format(new Date(entry.getValue().get(0))) + "\t"
+              + entry.getValue().get(1)/1000d + "\n");
+    }
+
+    ImmutableClassesGiraphConfiguration conf = getConfiguration();
+    FileSystem hdfs = FileSystem.get(conf);
+    Path file = new Path("/giraphStatistics/master");
+    FSDataOutputStream outputStream = hdfs.create(file);
+    outputStream.writeUTF(output.toString());
+
+    outputStream.flush();
+    outputStream.close();
   }
 
   /**
@@ -621,8 +637,10 @@ public class BspServiceMaster<I extends WritableComparable,
 
     // Note that the input splits may only be a sample if
     // INPUT_SPLIT_SAMPLE_PERCENT is set to something other than 100
+
+    //*********这里是创建好的splitList,会将结果写入到/_hadoopBsp/job_201712130359_0001/_vertexInputSplitDir下的Znode值中
     List<InputSplit> splitList = generateInputSplits(inputFormat,
-        minSplitCountHint, inputSplitType);
+        minSplitCountHint, inputSplitType); //InputSplit represents the data to be processed by an individual Mapper.
 
     if (splitList.isEmpty()) {
       LOG.fatal(logPrefix + ": Failing job due to 0 input splits, " +
@@ -773,6 +791,20 @@ public class BspServiceMaster<I extends WritableComparable,
     // In that case, the input splits are not set, they will be faked by
     // the checkpoint files.  Each checkpoint file will be an input split
     // and the input split
+
+    try {
+      ImmutableClassesGiraphConfiguration conf = getConfiguration();
+      FileSystem hdfs = FileSystem.get(conf);
+
+      String dirString = "/giraphStatistics";
+      Path dir = new Path(dirString);
+      if (hdfs.exists(dir)){
+        hdfs.delete(dir, true);
+      }
+      hdfs.mkdirs(dir);
+    }catch (IOException e){
+      LOG.info("Empty the directory /giraphStatistics in HDFS failed: " + e);
+    }
 
     if (getRestartedSuperstep() != UNSET_SUPERSTEP) {
       GiraphStats.getInstance().getSuperstepCounter().
@@ -1077,9 +1109,10 @@ public class BspServiceMaster<I extends WritableComparable,
   private void assignPartitionOwners() {
     Collection<PartitionOwner> partitionOwners;
     if (getSuperstep() == INPUT_SUPERSTEP) {
-      partitionOwners =
+      partitionOwners = //chosenWorkerInfoList 是健康的
           masterGraphPartitioner.createInitialPartitionOwners(
-              chosenWorkerInfoList, maxWorkers);
+              chosenWorkerInfoList, maxWorkers); //这里partitionOwners也会写入到
+      // masterGraphPartitioner对象的属性partitionOwnerList中
       if (partitionOwners.isEmpty()) {
         throw new IllegalStateException(
             "assignAndExchangePartitions: No partition owners set");
@@ -1117,7 +1150,7 @@ public class BspServiceMaster<I extends WritableComparable,
 
     // There will be some exchange of partitions
     if (!partitionOwners.isEmpty()) {
-      String vertexExchangePath =
+      String vertexExchangePath = //  /_hadoopBsp/job_201712130359_0001/_applicationAttemptsDir/0/_superstepDir/-1/_partitionExchangeDir
           getPartitionExchangePath(getApplicationAttempt(),
               getSuperstep());
       try {
@@ -1137,6 +1170,7 @@ public class BspServiceMaster<I extends WritableComparable,
       }
     }
 
+    // Workers are waiting for these assignments，在graphTaskManager.execute=>BspServiceWorker的startSuperstep中
     AddressesAndPartitionsWritable addressesAndPartitions =
         new AddressesAndPartitionsWritable(masterInfo, chosenWorkerInfoList,
             partitionOwners);
@@ -1255,7 +1289,7 @@ public class BspServiceMaster<I extends WritableComparable,
    *         failure
    */
   private boolean barrierOnWorkerList(String finishedWorkerPath,
-      List<WorkerInfo> workerInfoList,
+      List<WorkerInfo> workerInfoList,  //  /_hadoopBsp/job_201712130359_0001/_applicationAttemptsDir/0/_superstepDir/-1/_workerFinishedDir
       BspEvent event,
       boolean ignoreDeath) {
     try {
@@ -1278,7 +1312,7 @@ public class BspServiceMaster<I extends WritableComparable,
     for (WorkerInfo workerInfo : workerInfoList) {
       hostnameIdList.add(workerInfo.getHostnameId());
     }
-    String workerInfoHealthyPath =
+    String workerInfoHealthyPath = // /_hadoopBsp/job_201712130359_0001/_applicationAttemptsDir/0/_superstepDir/-1/_workerHealthyDir
         getWorkerInfoHealthyPath(getApplicationAttempt(), getSuperstep());
     List<String> finishedHostnameIdList = new ArrayList<>();
     long nextInfoMillis = System.currentTimeMillis();
@@ -1446,7 +1480,7 @@ public class BspServiceMaster<I extends WritableComparable,
   private void coordinateInputSplits() {
     // Coordinate the workers finishing sending their vertices/edges to the
     // correct workers and signal when everything is done.
-    if (!barrierOnWorkerList(inputSplitsWorkerDonePath,
+    if (!barrierOnWorkerList(inputSplitsWorkerDonePath, // /_hadoopBsp/job_201712130359_0001/_vertexInputSplitDoneDir
         chosenWorkerInfoList,
         getInputSplitsWorkerDoneEvent(),
         false)) {
@@ -1543,7 +1577,7 @@ public class BspServiceMaster<I extends WritableComparable,
       getContext().progress();
     }
 
-    chosenWorkerInfoList = checkWorkers();
+    chosenWorkerInfoList = checkWorkers();//这里返回的是健康的节点
     if (chosenWorkerInfoList == null) {
       setJobStateFailed("coordinateSuperstep: Not enough healthy workers for " +
                     "superstep " + getSuperstep());
@@ -1578,7 +1612,8 @@ public class BspServiceMaster<I extends WritableComparable,
 
     GiraphStats.getInstance().
         getCurrentWorkers().setValue(chosenWorkerInfoList.size());
-    assignPartitionOwners();
+
+    assignPartitionOwners();//master创建partitions，worker会等待图划分的完成,master继续往前走
 
     // Finalize the valid checkpoint file prefixes and possibly
     // the aggregators.
@@ -1613,6 +1648,7 @@ public class BspServiceMaster<I extends WritableComparable,
     if (getSuperstep() == INPUT_SUPERSTEP) {
       // Initialize aggregators before coordinating
       initializeAggregatorInputSuperstep();
+      //等待worker完成数据加载
       coordinateInputSplits();
     }
 
@@ -1677,6 +1713,7 @@ public class BspServiceMaster<I extends WritableComparable,
     String superstepFinishedNode =
         getSuperstepFinishedPath(getApplicationAttempt(), getSuperstep());
 
+    ///_hadoopBsp/job_201712130359_0001/_applicationAttemptsDir/0/_superstepDir/-1/_superstepFinished
     WritableUtils.writeToZnode(
         getZkExt(), superstepFinishedNode, -1, globalStats, superstepClasses);
     updateCounters(globalStats);

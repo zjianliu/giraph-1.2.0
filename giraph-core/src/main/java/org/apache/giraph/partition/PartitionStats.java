@@ -34,6 +34,8 @@ public class PartitionStats implements Writable {
   private long vertexCount = 0;
   /** Finished vertices in this partition */
   private long finishedVertexCount = 0;
+  /** computed vertices in this partition */
+  private long computedVertexCount = 0;
   /** Edges in this partition */
   private long edgeCount = 0;
   /** Messages sent from this partition */
@@ -52,6 +54,7 @@ public class PartitionStats implements Writable {
    * @param partitionId Partition count.
    * @param vertexCount Vertex count.
    * @param finishedVertexCount Finished vertex count.
+   * @param computedVertexCount Computed vertices count.
    * @param edgeCount Edge count.
    * @param messagesSentCount Number of messages sent
    * @param messageBytesSentCount Number of message bytes sent
@@ -59,12 +62,14 @@ public class PartitionStats implements Writable {
   public PartitionStats(int partitionId,
       long vertexCount,
       long finishedVertexCount,
+      long computedVertexCount,
       long edgeCount,
       long messagesSentCount,
       long messageBytesSentCount) {
     this.partitionId = partitionId;
     this.vertexCount = vertexCount;
     this.finishedVertexCount = finishedVertexCount;
+    this.computedVertexCount = computedVertexCount;
     this.edgeCount = edgeCount;
     this.messagesSentCount = messagesSentCount;
     this.messageBytesSentCount = messageBytesSentCount;
@@ -130,6 +135,21 @@ public class PartitionStats implements Writable {
   }
 
   /**
+   * Increment the computed vertex count by one.
+   */
+  public void increComputedVertexCount() {
+    ++computedVertexCount;
+  }
+
+  /**
+   * Get the computed vertex count.
+   * @return Computed vertex count.
+   */
+  public long getComputedVertexCount() {
+    return computedVertexCount;
+  }
+
+  /**
    * Get the edge count.
    *
    * @return Edge count.
@@ -179,6 +199,7 @@ public class PartitionStats implements Writable {
     partitionId = input.readInt();
     vertexCount = input.readLong();
     finishedVertexCount = input.readLong();
+    computedVertexCount = input.readLong();
     edgeCount = input.readLong();
     messagesSentCount = input.readLong();
     messageBytesSentCount = input.readLong();
@@ -189,6 +210,7 @@ public class PartitionStats implements Writable {
     output.writeInt(partitionId);
     output.writeLong(vertexCount);
     output.writeLong(finishedVertexCount);
+    output.writeLong(computedVertexCount);
     output.writeLong(edgeCount);
     output.writeLong(messagesSentCount);
     output.writeLong(messageBytesSentCount);
@@ -197,7 +219,8 @@ public class PartitionStats implements Writable {
   @Override
   public String toString() {
     return "(id=" + partitionId + ",vtx=" + vertexCount + ",finVtx=" +
-        finishedVertexCount + ",edges=" + edgeCount + ",msgsSent=" +
+        finishedVertexCount + ",computedVtx=" + computedVertexCount +
+            ",edges=" + edgeCount + ",msgsSent=" +
         messagesSentCount + ",msgBytesSent=" +
           messageBytesSentCount + ")";
   }

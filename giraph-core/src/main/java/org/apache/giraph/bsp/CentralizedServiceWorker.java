@@ -254,4 +254,9 @@ public interface CentralizedServiceWorker<I extends WritableComparable,
    */
   void addressesAndPartitionsReceived(
       AddressesAndPartitionsWritable addressesAndPartitions);
+
+  /**
+   * Write the status of  partitions in a superstep into HDFS.
+   */
+  void writeSuperstepStatsIntoHDFS() throws IOException;
 }

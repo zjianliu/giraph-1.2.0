@@ -1224,5 +1224,13 @@ public interface GiraphConstants {
   BooleanConfOption PREFER_IP_ADDRESSES =
       new BooleanConfOption("giraph.preferIP", false,
       "Prefer IP addresses instead of host names");
+
+  /** The ip address:port of machine that used to monitor the giraph execution
+   */
+  StrConfOption MONITOR_MACHINE_IP_ADDRESS_PORT =
+          new StrConfOption("giraph.monitor.ip.addressport", "",
+                  "The ip address:port of machine that used to monitor " +
+                          "the giraph execution");
+
 }
 // CHECKSTYLE: resume InterfaceIsTypeCheck

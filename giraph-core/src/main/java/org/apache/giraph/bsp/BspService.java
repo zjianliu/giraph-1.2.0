@@ -577,7 +577,7 @@ public abstract class BspService<I extends WritableComparable,
    */
   public final JSONObject getJobState() {
     try {
-      getZkExt().createExt(masterJobStatePath,
+      getZkExt().createExt(masterJobStatePath, ///_hadoopBsp/job_201712130359_0001/_masterJobState
           null,
           Ids.OPEN_ACL_UNSAFE,
           CreateMode.PERSISTENT,

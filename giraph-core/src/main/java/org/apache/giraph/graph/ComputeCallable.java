@@ -269,7 +269,7 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
       Partition<I, V, E> partition, OutOfCoreEngine oocEngine)
       throws IOException, InterruptedException {
     PartitionStats partitionStats =
-        new PartitionStats(partition.getId(), 0, 0, 0, 0, 0);
+        new PartitionStats(partition.getId(), 0,0, 0, 0, 0, 0);
     long verticesComputedProgress = 0;
     // Make sure this is thread-safe across runs
     synchronized (partition) {
@@ -289,6 +289,8 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
         if (!vertex.isHalted()) {
           context.progress();
           computation.compute(vertex, messages);
+          //increment the computedVertexCount
+          partitionStats.increComputedVertexCount();
           // Need to unwrap the mutated edges (possibly)
           vertex.unwrapMutableEdges();
           //Compact edges representation if possible

@@ -21,8 +21,10 @@ package org.apache.giraph.graph;
 import java.io.IOException;
 import java.lang.management.GarbageCollectorMXBean;
 import java.lang.management.ManagementFactory;
+import java.net.Socket;
 import java.net.URL;
 import java.net.URLDecoder;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Enumeration;
@@ -52,6 +54,8 @@ import org.apache.giraph.metrics.GiraphTimer;
 import org.apache.giraph.metrics.GiraphTimerContext;
 import org.apache.giraph.metrics.ResetSuperstepMetricsObserver;
 import org.apache.giraph.metrics.SuperstepMetricsRegistry;
+import org.apache.giraph.monitor.Metrics;
+import org.apache.giraph.monitor.Monitor;
 import org.apache.giraph.ooc.OutOfCoreEngine;
 import org.apache.giraph.partition.PartitionOwner;
 import org.apache.giraph.partition.PartitionStats;
@@ -60,11 +64,7 @@ import org.apache.giraph.scripting.ScriptLoader;
 import org.apache.giraph.utils.CallableFactory;
 import org.apache.giraph.utils.MemoryUtils;
 import org.apache.giraph.utils.ProgressableUtils;
-import org.apache.giraph.worker.BspServiceWorker;
-import org.apache.giraph.worker.InputSplitsCallable;
-import org.apache.giraph.worker.WorkerContext;
-import org.apache.giraph.worker.WorkerObserver;
-import org.apache.giraph.worker.WorkerProgress;
+import org.apache.giraph.worker.*;
 import org.apache.giraph.zk.ZooKeeperManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -76,6 +76,7 @@ import org.apache.log4j.Level;
 import org.apache.log4j.LogManager;
 import org.apache.log4j.Logger;
 import org.apache.log4j.PatternLayout;
+import org.hyperic.sigar.SigarException;
 
 import javax.management.Notification;
 import javax.management.NotificationEmitter;
@@ -133,6 +134,8 @@ end[PURE_YARN]*/
   private CentralizedServiceMaster<I, V, E> serviceMaster;
   /** Coordination service master thread */
   private Thread masterThread = null;
+  /** Thread used to monitor the system status of worker */
+  private WorkerMonitorThread<I, V, E> monitorThread;
   /** The worker should be run exactly once, or else there is a problem. */
   private boolean alreadyRun = false;
   /** Manages the ZooKeeper servers if necessary (dynamic startup) */
@@ -199,6 +202,79 @@ end[PURE_YARN]*/
     if (conf.hasVertexInputFormat()) {
       conf.createWrappedVertexInputFormat().checkInputSpecs(conf);
     }
+  }
+
+  /**
+   * get the monitor socket to send info to.
+   * @return Socket
+   * @throws IOException
+   */
+  public Socket getMonitorSocket(){
+    String ipAndPort = conf.getMonitorAddressAndPort();
+    String ip = ipAndPort.split(":")[0];
+    int port = Integer.parseInt(ipAndPort.split(":")[1]);
+
+    try {
+      Socket socket = new Socket(ip, port);
+      if (LOG.isInfoEnabled()) {
+        LOG.info("GraphTaskManager:Socket connects to " + ipAndPort + " successfully.");
+      }
+      return socket;
+    }catch (IOException e){
+      throw new IllegalStateException(
+              "getMonitor: IOException", e);
+    }
+  }
+
+  /**
+   * Get the system statistics of the current worker, such as CPU, Memory, Network
+   * @param monitor
+   * @return
+   * @throws SigarException
+   */
+  public String getWorkerSystemStatus(Monitor monitor) {
+    try {
+      StringBuffer status = new StringBuffer();
+      Metrics metrics = monitor.getMetrics();
+      String hostName = conf.getLocalHostname();
+
+      //get the statistics of the system
+      long time = metrics.getTime().getTime() / 1000;
+      double cpuUser = metrics.getCpuUser();
+      double memoryUsage = metrics.getMemoryUsed() / 1024d / 1024d;
+      int totalNetworkup = metrics.getTotalNetworkup();
+      int totalNetworkdown = metrics.getTotalNetworkdown();
+
+      /*
+      LOG.info("metrics.getMemoryUsed: " + metrics.getMemoryUsed());
+      LOG.info("metrics.getMemoryTotal() " + metrics.getMemoryTotal());
+      LOG.info("Runtime.getRuntime().totalMemory(): " + Runtime.getRuntime().totalMemory());
+      LOG.info("Runtime.getRuntime().maxMemory(): " + Runtime.getRuntime().maxMemory());
+      */
+
+      status.append("giraph." + hostName + ".cpuUser " + cpuUser + " " + time + "\n");
+      status.append("giraph." + hostName + ".memoryUsage " + memoryUsage + " " + time + "\n");
+      status.append("giraph." + hostName + ".totalNetworkup " + totalNetworkup + " " + time + "\n");
+      status.append("giraph." + hostName + ".totalNetworkdown " + totalNetworkdown + " " + time);
+
+      return status.toString();
+    } catch (SigarException e){
+      throw new IllegalStateException(
+              "getWorkerSystemStatus: SigarException ", e);
+    } catch (UnknownHostException e){
+      throw new IllegalStateException(
+              "getWorkerSystemStatus: UnknownHostException ", e);
+    } catch (UnsatisfiedLinkError e){
+      throw new IllegalStateException("getWorkerSystemStatus: UnsatisfiedLinkError " + e);
+    }
+  }
+
+  /**
+   * Intended to check whether the BSP application finished
+   * @return True if finished
+   */
+  public boolean isApplicationFinished(){
+    return done;
   }
 
   /**
@@ -305,7 +381,11 @@ end[PURE_YARN]*/
     }
     preLoadOnWorkerObservers();
     GiraphTimerContext superstepTimerContext = superstepTimer.time();
-    finishedSuperstepStats = serviceWorker.setup();
+
+    LOG.info("**********************serviceWorker.setup() starts**********************");
+    finishedSuperstepStats = serviceWorker.setup(); //return: Finished superstep stats for the input superstep （超步 -1）
+    LOG.info("**********************serviceWorker.setup() ends  **********************");
+
     superstepTimerContext.stop();
     if (collectInputSuperstepStats(finishedSuperstepStats)) {
       return;
@@ -314,9 +394,12 @@ end[PURE_YARN]*/
     List<PartitionStats> partitionStatsList = new ArrayList<PartitionStats>();
     int numComputeThreads = conf.getNumComputeThreads();
 
-    // main superstep processing loop
+    // main superstep processing loop from superstep 0
     while (!finishedSuperstepStats.allVerticesHalted()) {
       final long superstep = serviceWorker.getSuperstep();
+
+      LOG.info("**********************superstep " + superstep + " starts**********************");
+
       superstepTimerContext = getTimerForThisSuperstep(superstep);
       GraphState graphState = new GraphState(superstep,
           finishedSuperstepStats.getVertexCount(),
@@ -361,15 +444,19 @@ end[PURE_YARN]*/
         processGraphPartitions(context, partitionStatsList, graphState,
           messageStore, numThreads);
       }
+
       finishedSuperstepStats = completeSuperstepAndCollectStats(
         partitionStatsList, superstepTimerContext);
 
+      LOG.info("**********************superstep " + superstep + " ends  **********************");
       // END of superstep compute loop
     }
 
     if (LOG.isInfoEnabled()) {
       LOG.info("execute: BSP application done (global vertices marked done)");
     }
+
+    serviceWorker.writeSuperstepStatsIntoHDFS();
     updateSuperstepGraphState();
     postApplication();
   }
@@ -618,17 +705,26 @@ end[PURE_YARN]*/
     throws IOException, InterruptedException {
     if (graphFunctions.isMaster()) {
       if (LOG.isInfoEnabled()) {
-        LOG.info("setup: Starting up BspServiceMaster " +
-          "(master thread)...");
+        LOG.info("setup: Starting up monitor thread...");
+        LOG.info("setup: Starting up BspServiceMaster (master thread)...");
       }
+      monitorThread = new WorkerMonitorThread<>(this, context);
+      monitorThread.start();
+      //let the monitorThread run some time before masterThread
+      Thread.sleep(2000);
       serviceMaster = new BspServiceMaster<I, V, E>(context, this);
       masterThread = new MasterThread<I, V, E>(serviceMaster, context);
       masterThread.start();
     }
     if (graphFunctions.isWorker()) {
       if (LOG.isInfoEnabled()) {
+        LOG.info("setup: Starting up monitor thread...");
         LOG.info("setup: Starting up BspServiceWorker...");
       }
+      monitorThread = new WorkerMonitorThread<>(this, context);
+      monitorThread.start();
+      //let the monitorThread run some time before masterThread
+      Thread.sleep(2000);
       serviceWorker = new BspServiceWorker<I, V, E>(context, this);
       installGCMonitoring();
       if (LOG.isInfoEnabled()) {
@@ -1001,6 +1097,19 @@ end[PURE_YARN]*/
 
     // Stop tracking metrics
     GiraphMetrics.get().shutdown();
+
+    done = true;
+    //let the monitorThread run some time after the giraph execution.
+    Thread.sleep(2000);
+    try {
+      if (monitorThread != null) {
+        monitorThread.join();
+        LOG.info("cleanup: Joined with monitor thread");
+      }
+    } catch (InterruptedException e){
+      // cleanup phase -- just log the error
+      LOG.error("cleanup: monitor thread couldn't join");
+    }
   }
 
   /**

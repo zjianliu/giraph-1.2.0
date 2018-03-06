@@ -22,15 +22,8 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.Map.Entry;
-import java.util.Queue;
-import java.util.Set;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
@@ -96,6 +89,7 @@ import org.apache.giraph.zk.BspEvent;
 import org.apache.giraph.zk.PredicateLock;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableComparable;
@@ -155,9 +149,10 @@ public class BspServiceWorker<I extends WritableComparable,
   private MasterInfo masterInfo = new MasterInfo();
   /** List of workers */
   private List<WorkerInfo> workerInfoList = Lists.newArrayList();
+  /** Statistics of the status of  partitions of a worker */
+  private final Map<Long, List<PartitionStats>> superstepStatisticMap = new TreeMap<>();
   /** Have the partition exchange children (workers) changed? */
   private final BspEvent partitionExchangeChildrenChanged;
-
   /** Addresses and partitions transfer */
   private BlockingElementsSet<AddressesAndPartitionsWritable>
       addressesAndPartitionsHolder = new BlockingElementsSet<>();
@@ -493,6 +488,7 @@ public class BspServiceWorker<I extends WritableComparable,
     }
 
     // Add the partitions that this worker owns
+    //这里的masterSetPartitionOwners包含了全体的partitionOwner信息，这里会等待master assignPartitionOwners的完成
     Collection<? extends PartitionOwner> masterSetPartitionOwners =
         startSuperstep();
     workerGraphPartitioner.updatePartitionOwners(
@@ -605,6 +601,7 @@ else[HADOOP_NON_SECURE]*/
           new PartitionStats(partitionId,
               partitionStore.getPartitionVertexCount(partitionId),
               0,
+              0,
               partitionStore.getPartitionEdgeCount(partitionId),
               0, 0);
       partitionStatsList.add(partitionStats);
@@ -703,13 +700,18 @@ else[HADOOP_NON_SECURE]*/
     // 3. Wait until the partition assignment is complete and get it
     // 4. Get the aggregator values from the previous superstep
     if (getSuperstep() != INPUT_SUPERSTEP) {
-      workerServer.prepareSuperstep();
+      workerServer.prepareSuperstep();//这里对应上面列表1
     }
 
+    // 对应列表2，向master汇报本节点的健康，bspService下的checkWorkers会检查健康worker的数量是否满足要求
     registerHealth(getSuperstep());
 
+    //对应列表3，worker向master汇报完本节点健康后，等待master创建partitionOwner，
+    //在BspServiceMaster的assignPartitionOwners中
     AddressesAndPartitionsWritable addressesAndPartitions =
         addressesAndPartitionsHolder.getElement(getContext());
+    // /_hadoopBsp/job_201712130359_0001/
+    // _applicationAttemptsDir/0/_superstepDir/-1/_addressesAndPartitions
 
     workerInfoList.clear();
     workerInfoList = addressesAndPartitions.getWorkerInfos();
@@ -754,6 +756,8 @@ else[HADOOP_NON_SECURE]*/
     // 5. Let the master know it is finished.
     // 6. Wait for the master's superstep info, and check if done
     waitForRequestsToFinish();
+
+    superstepStatisticMap.put(getSuperstep(), partitionStatsList);
 
     getGraphTaskManager().notifyFinishedCommunication();
 
@@ -1829,5 +1833,41 @@ else[HADOOP_NON_SECURE]*/
   public void addressesAndPartitionsReceived(
       AddressesAndPartitionsWritable addressesAndPartitions) {
     addressesAndPartitionsHolder.offer(addressesAndPartitions);
+  }
+
+  @Override
+  public void writeSuperstepStatsIntoHDFS() throws IOException{
+    StringBuffer output = new StringBuffer();
+    output.append("\nsuperstep\tSentMessages\tSentMessageBytes\tlocalVertices\tfinishedVertices\tcomputedVertices\n");
+    for (Entry<Long, List<PartitionStats>> entry : superstepStatisticMap.entrySet()){
+      long superstep = entry.getKey().longValue();
+
+      long workerSentMessages = 0;
+      long workerSentMessageBytes = 0;
+      long localVertices = 0;
+      long finishedVertices = 0;
+      long computedVertices = 0;
+      for (PartitionStats partitionStats: entry.getValue()){
+        workerSentMessages += partitionStats.getMessagesSentCount();
+        workerSentMessageBytes += partitionStats.getMessageBytesSentCount();
+        localVertices += partitionStats.getVertexCount();
+        finishedVertices += partitionStats.getFinishedVertexCount();
+        computedVertices += partitionStats.getComputedVertexCount();
+      }
+      output.append(superstep + "\t" + workerSentMessages + "\t" + workerSentMessageBytes + "\t"
+                  + localVertices + "\t" + finishedVertices + "\t" + computedVertices + "\n");
+    }
+
+    ImmutableClassesGiraphConfiguration conf = getConfiguration();
+    FileSystem hdfs = FileSystem.get(conf);
+
+    String hostName = this.getHostname();
+    String fileName = "/giraphStatistics/" + hostName;
+    Path file = new Path(fileName);
+    FSDataOutputStream outputStream = hdfs.create(file);
+    outputStream.writeUTF(output.toString());
+
+    outputStream.flush();
+    outputStream.close();
   }
 }
