@@ -57,12 +57,18 @@ public class WorkerMonitorThread<I extends WritableComparable, V extends Writabl
                     txbps = (txBytesAfter - txBytesBefore) * 8 / (time - timeBefore) * 1000;
                 }
 
+                LOG.info("time: " + time/1000);
+                LOG.info("cpuUsage: " + cpuUser);
+                LOG.info("memoryUsage: " + memoryUsage);
+                LOG.info("rxbps: " + rxbps);
+                LOG.info("txbps: " + txbps);
+
                 status.append("giraph." + hostname + ".cpuUser " + cpuUser + " " + time/1000 + "\n");
                 status.append("giraph." + hostname + ".memoryUsage " + memoryUsage + " " + time/1000 + "\n");
                 status.append("giraph." + hostname + ".totalNetworkup " + rxbps + " " + time/1000 + "\n");
                 status.append("giraph." + hostname + ".totalNetworkdown " + txbps + " " + time/1000);
 
-                pw.println(systemStatus);
+                pw.println(status);
                 pw.flush();
 
                 rxBytesBefore = rxBytesAfter;
