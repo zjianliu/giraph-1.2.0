@@ -247,10 +247,10 @@ end[PURE_YARN]*/
 
       status[0] = hostName;
       status[1] = String.valueOf(time);
-      status[1] = String.valueOf(cpuUser);
-      status[2] = String.valueOf(memoryUsage);
-      status[3] = String.valueOf(rxBytes);
-      status[4] = String.valueOf(txBytes);
+      status[2] = String.valueOf(cpuUser);
+      status[3] = String.valueOf(memoryUsage);
+      status[4] = String.valueOf(rxBytes);
+      status[5] = String.valueOf(txBytes);
 
 
       /*
