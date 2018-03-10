@@ -3,6 +3,8 @@ package org.apache.giraph.monitor;
 import org.apache.giraph.utils.SigarUtil;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.log4j.Logger;
+import org.hyperic.sigar.NetInterfaceConfig;
+import org.hyperic.sigar.NetInterfaceStat;
 import org.hyperic.sigar.Sigar;
 import org.hyperic.sigar.SigarException;
 
@@ -26,13 +28,19 @@ public class Monitor {
     }
 
     public Metrics getMetrics() throws SigarException, UnsatisfiedLinkError {
+        Date time = new Date();
         double cpuUser = sigar.getCpuPerc().getUser();
         double memoryUsed = sigar.getMem().getActualUsed();
         long memoryTotal = sigar.getMem().getTotal();
-        int totalNetworkup = sigar.getNetStat().getAllOutboundTotal();
-        int totalNetworkdown = sigar.getNetStat().getAllInboundTotal();
-        Date time = new Date();
+        //int totalNetworkup = sigar.getNetStat().getAllOutboundTotal();
+        //int totalNetworkdown = sigar.getNetStat().getAllInboundTotal();
+        //String ifNames[] = sigar.getNetInterfaceList();
+        NetInterfaceStat ifstat = sigar.getNetInterfaceStat("ens3");
+        long rxBytesStart = ifstat.getRxBytes();
+        long txBytesStart = ifstat.getTxBytes();
 
-        return new Metrics(cpuUser, memoryUsed, memoryTotal, totalNetworkup, totalNetworkdown, time);
+
+
+        return new Metrics(cpuUser, memoryUsed, memoryTotal, rxBytesStart, txBytesStart, time);
     }
 }

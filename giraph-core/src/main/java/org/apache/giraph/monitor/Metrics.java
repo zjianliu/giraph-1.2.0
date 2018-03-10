@@ -18,12 +18,12 @@ public class Metrics {
         return memoryTotal;
     }
 
-    public int getTotalNetworkup() {
-        return totalNetworkup;
+    public long getRxBytes() {
+        return rxBytes;
     }
 
-    public int getTotalNetworkdown() {
-        return totalNetworkdown;
+    public long getTxBytes() {
+        return txBytes;
     }
 
     public Date getTime() {
@@ -33,17 +33,17 @@ public class Metrics {
     private double cpuUser;
     private double memoryUsed;
     private long memoryTotal;
-    private int totalNetworkup;
-    private int totalNetworkdown;
+    private long rxBytes;
+    private long txBytes;
     private Date time;
 
     public Metrics(double cpuUser, double memoryUsed, long memoryTotal,
-                   int totalNetworkup, int totalNetworkdown, Date time){
+                   long rxBytes, long txBytes, Date time){
         this.cpuUser = cpuUser;
         this.memoryUsed = memoryUsed;
         this.memoryTotal = memoryTotal;
-        this.totalNetworkup = totalNetworkup;
-        this.totalNetworkdown = totalNetworkdown;
+        this.rxBytes = rxBytes;
+        this.txBytes = txBytes;
         this.time = time;
     }
 

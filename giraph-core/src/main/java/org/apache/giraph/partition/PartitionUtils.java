@@ -195,7 +195,7 @@ public class PartitionUtils {
     if (userPartitionCount == USER_PARTITION_COUNT.getDefaultValue()) {
       float multiplier = GiraphConstants.PARTITION_COUNT_MULTIPLIER.get(conf);
       partitionCount = Math.max(
-          (int) (multiplier * availableWorkerCount), 1);
+          (int) (multiplier * availableWorkerCount * availableWorkerCount), 1);
       int minPartitionsPerComputeThread =
           MIN_PARTITIONS_PER_COMPUTE_THREAD.get(conf);
       int totalComputeThreads =

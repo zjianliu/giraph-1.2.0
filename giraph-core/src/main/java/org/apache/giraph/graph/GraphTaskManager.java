@@ -232,18 +232,26 @@ end[PURE_YARN]*/
    * @return
    * @throws SigarException
    */
-  public String getWorkerSystemStatus(Monitor monitor) {
+  public String[] getWorkerSystemStatus(Monitor monitor) {
     try {
-      StringBuffer status = new StringBuffer();
+      String[] status = new String[6];
       Metrics metrics = monitor.getMetrics();
       String hostName = conf.getLocalHostname();
 
       //get the statistics of the system
-      long time = metrics.getTime().getTime() / 1000;
+      long time = metrics.getTime().getTime();
       double cpuUser = metrics.getCpuUser();
       double memoryUsage = metrics.getMemoryUsed() / 1024d / 1024d;
-      int totalNetworkup = metrics.getTotalNetworkup();
-      int totalNetworkdown = metrics.getTotalNetworkdown();
+      long rxBytes = metrics.getRxBytes();
+      long txBytes = metrics.getTxBytes();
+
+      status[0] = hostName;
+      status[1] = String.valueOf(time);
+      status[1] = String.valueOf(cpuUser);
+      status[2] = String.valueOf(memoryUsage);
+      status[3] = String.valueOf(rxBytes);
+      status[4] = String.valueOf(txBytes);
+
 
       /*
       LOG.info("metrics.getMemoryUsed: " + metrics.getMemoryUsed());
@@ -252,12 +260,14 @@ end[PURE_YARN]*/
       LOG.info("Runtime.getRuntime().maxMemory(): " + Runtime.getRuntime().maxMemory());
       */
 
+      /*
       status.append("giraph." + hostName + ".cpuUser " + cpuUser + " " + time + "\n");
       status.append("giraph." + hostName + ".memoryUsage " + memoryUsage + " " + time + "\n");
       status.append("giraph." + hostName + ".totalNetworkup " + totalNetworkup + " " + time + "\n");
       status.append("giraph." + hostName + ".totalNetworkdown " + totalNetworkdown + " " + time);
+      */
 
-      return status.toString();
+      return status;
     } catch (SigarException e){
       throw new IllegalStateException(
               "getWorkerSystemStatus: SigarException ", e);
@@ -297,6 +307,7 @@ end[PURE_YARN]*/
    */
   public void setup(Path[] zkPathList)
     throws IOException, InterruptedException {
+    System.setProperty("user.timezone","Asia/Shanghai");
     context.setStatus("setup: Beginning worker setup.");
     Configuration hadoopConf = context.getConfiguration();
     conf = new ImmutableClassesGiraphConfiguration<I, V, E>(hadoopConf);
@@ -391,7 +402,7 @@ end[PURE_YARN]*/
       return;
     }
     prepareGraphStateAndWorkerContext();
-    List<PartitionStats> partitionStatsList = new ArrayList<PartitionStats>();
+
     int numComputeThreads = conf.getNumComputeThreads();
 
     // main superstep processing loop from superstep 0
@@ -438,7 +449,7 @@ end[PURE_YARN]*/
           numThreads + " compute thread(s), originally " +
           numComputeThreads + " thread(s) on superstep " + superstep);
       }
-      partitionStatsList.clear();
+      List<PartitionStats> partitionStatsList = new ArrayList<PartitionStats>();
       // execute the current superstep
       if (numPartitions > 0) {
         processGraphPartitions(context, partitionStatsList, graphState,
@@ -711,7 +722,7 @@ end[PURE_YARN]*/
       monitorThread = new WorkerMonitorThread<>(this, context);
       monitorThread.start();
       //let the monitorThread run some time before masterThread
-      Thread.sleep(2000);
+      Thread.sleep(30000);
       serviceMaster = new BspServiceMaster<I, V, E>(context, this);
       masterThread = new MasterThread<I, V, E>(serviceMaster, context);
       masterThread.start();
@@ -724,7 +735,7 @@ end[PURE_YARN]*/
       monitorThread = new WorkerMonitorThread<>(this, context);
       monitorThread.start();
       //let the monitorThread run some time before masterThread
-      Thread.sleep(2000);
+      Thread.sleep(30000);
       serviceWorker = new BspServiceWorker<I, V, E>(context, this);
       installGCMonitoring();
       if (LOG.isInfoEnabled()) {
@@ -1099,8 +1110,6 @@ end[PURE_YARN]*/
     GiraphMetrics.get().shutdown();
 
     done = true;
-    //let the monitorThread run some time after the giraph execution.
-    Thread.sleep(2000);
     try {
       if (monitorThread != null) {
         monitorThread.join();

@@ -757,9 +757,9 @@ else[HADOOP_NON_SECURE]*/
     // 6. Wait for the master's superstep info, and check if done
     waitForRequestsToFinish();
 
-    superstepStatisticMap.put(getSuperstep(), partitionStatsList);
-
     getGraphTaskManager().notifyFinishedCommunication();
+
+    superstepStatisticMap.put(getSuperstep(), partitionStatsList);
 
     long workerSentMessages = 0;
     long workerSentMessageBytes = 0;
