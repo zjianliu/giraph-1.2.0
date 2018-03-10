@@ -43,7 +43,7 @@ public class WorkerMonitorThread<I extends WritableComparable, V extends Writabl
                 StringBuffer status = new StringBuffer();
 
                 String hostname = systemStatus[0];
-                long time = Long.parseLong(systemStatus[1]) / 1000;
+                long time = Long.parseLong(systemStatus[1]);
                 double cpuUser = Double.parseDouble(systemStatus[2]);
                 double memoryUsage = Double.parseDouble(systemStatus[3]);
                 long rxBytesAfter = Long.parseLong(systemStatus[4]);
@@ -53,14 +53,14 @@ public class WorkerMonitorThread<I extends WritableComparable, V extends Writabl
                 long txbps = 0;
 
                 if(rxBytesBefore != 0 && txBytesBefore != 0){
-                    rxbps = (rxBytesAfter - rxBytesBefore) * 8 / (time - timeBefore);
-                    txbps = (txBytesAfter - txBytesBefore) * 8 / (time - timeBefore);
+                    rxbps = (rxBytesAfter - rxBytesBefore) * 8 / (time - timeBefore) * 1000;
+                    txbps = (txBytesAfter - txBytesBefore) * 8 / (time - timeBefore) * 1000;
                 }
 
-                status.append("giraph." + hostname + ".cpuUser " + cpuUser + " " + time + "\n");
-                status.append("giraph." + hostname + ".memoryUsage " + memoryUsage + " " + time + "\n");
-                status.append("giraph." + hostname + ".totalNetworkup " + rxbps + " " + time + "\n");
-                status.append("giraph." + hostname + ".totalNetworkdown " + txbps + " " + time);
+                status.append("giraph." + hostname + ".cpuUser " + cpuUser + " " + time/1000 + "\n");
+                status.append("giraph." + hostname + ".memoryUsage " + memoryUsage + " " + time/1000 + "\n");
+                status.append("giraph." + hostname + ".totalNetworkup " + rxbps + " " + time/1000 + "\n");
+                status.append("giraph." + hostname + ".totalNetworkdown " + txbps + " " + time/1000);
 
                 pw.println(systemStatus);
                 pw.flush();
@@ -69,7 +69,7 @@ public class WorkerMonitorThread<I extends WritableComparable, V extends Writabl
                 txBytesBefore = txBytesAfter;
                 timeBefore = time;
 
-                Thread.sleep(300);
+                Thread.sleep(500);
             }
             socket.shutdownOutput();
             socket.close();
