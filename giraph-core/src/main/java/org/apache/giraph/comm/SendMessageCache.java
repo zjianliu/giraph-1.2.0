@@ -153,7 +153,9 @@ public class SendMessageCache<I extends WritableComparable, M extends Writable>
       LOG.trace("sendMessageRequest: Send bytes (" + message.toString() +
         ") to " + destVertexId + " on worker " + workerInfo);
     }
-    ++totalMsgsSentInSuperstep;
+    if (!getServiceWorker().getPartitionStore().hasPartition(partitionId)) {
+      ++totalMsgsSentInSuperstep;
+    }
     // Add the message to the cache
     int workerMessageSize = addMessage(
       workerInfo, partitionId, destVertexId, message);
