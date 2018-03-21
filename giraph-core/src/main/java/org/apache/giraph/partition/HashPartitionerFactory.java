@@ -35,6 +35,38 @@ public class HashPartitionerFactory<I extends WritableComparable,
   @Override
   public int getPartition(I id, int partitionCount, int workerCount) {
     return Math.abs(id.hashCode() % partitionCount);
+        /*
+    int id1 = Integer.parseInt(id.toString());
+    if(0 <= id1 && id1 <= 500000){
+        return 0;
+    }
+    if(500001 <= id1 && id1 <= 1000000){
+        return 3;
+    }
+    if(1000001 <= id1 && id1 <= 1500000){
+        return 6;
+    }
+    if(1500001 <= id1 && id1 <= 1666668){
+        return 1;
+    }
+    if(1666669 <= id1 && id1 <= 1833336){
+        return 4;
+    }
+    if(1833337 <= id1 && id1 <= 2000000){
+        return 7;
+    }
+    if(2000001 <= id1 && id1 <= 3000000){
+        return 2;
+    }
+    if(3000001 <= id1 && id1 <= 4000000){
+        return 5;
+    }
+    if(4000001 <= id1 && id1 <= 4847570){
+        return 8;
+    }else{
+        return 0;
+    }
+    */
   }
 
   @Override

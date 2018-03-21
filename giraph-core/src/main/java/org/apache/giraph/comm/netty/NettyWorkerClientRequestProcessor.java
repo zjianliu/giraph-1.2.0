@@ -447,8 +447,13 @@ public class NettyWorkerClientRequestProcessor<I extends WritableComparable,
   }
 
   @Override
-  public long resetMessageCount() {
-    return this.sendMessageCache.resetMessageCount();
+  public long resetMessageToOtherWorkerCount() {
+    return this.sendMessageCache.resetMessageToOtherWorkerCount();
+  }
+
+  @Override
+  public long resetMessageToItselfCount() {
+    return this.sendMessageCache.resetMessageToItselfCount();
   }
 
   @Override

@@ -38,8 +38,10 @@ public class PartitionStats implements Writable {
   private long computedVertexCount = 0;
   /** Edges in this partition */
   private long edgeCount = 0;
-  /** Messages sent from this partition */
-  private long messagesSentCount = 0;
+  /** Messages sent from this partition to other worker*/
+  private long messagesSentToOtherWorkerCount = 0;
+  /** Messages sent from this partition to itself*/
+  private long messagesSentToItselfCount = 0;
   /** Message byetes sent from this partition */
   private long messageBytesSentCount = 0;
 
@@ -56,7 +58,7 @@ public class PartitionStats implements Writable {
    * @param finishedVertexCount Finished vertex count.
    * @param computedVertexCount Computed vertices count.
    * @param edgeCount Edge count.
-   * @param messagesSentCount Number of messages sent
+   * @param messagesSentToOtherWorkerCount Number of messages sent to other worker
    * @param messageBytesSentCount Number of message bytes sent
    */
   public PartitionStats(int partitionId,
@@ -64,14 +66,16 @@ public class PartitionStats implements Writable {
       long finishedVertexCount,
       long computedVertexCount,
       long edgeCount,
-      long messagesSentCount,
+      long messagesSentToOtherWorkerCount,
+      long messagesSentToItselfCount,
       long messageBytesSentCount) {
     this.partitionId = partitionId;
     this.vertexCount = vertexCount;
     this.finishedVertexCount = finishedVertexCount;
     this.computedVertexCount = computedVertexCount;
     this.edgeCount = edgeCount;
-    this.messagesSentCount = messagesSentCount;
+    this.messagesSentToOtherWorkerCount = messagesSentToOtherWorkerCount;
+    this.messagesSentToItselfCount = messagesSentToItselfCount;
     this.messageBytesSentCount = messageBytesSentCount;
   }
 
@@ -163,8 +167,8 @@ public class PartitionStats implements Writable {
    *
    * @param messagesSentCount Number of messages to add.
    */
-  public void addMessagesSentCount(long messagesSentCount) {
-    this.messagesSentCount += messagesSentCount;
+  public void addMessagesSentToItselfCount(long messagesSentCount) {
+    this.messagesSentToItselfCount += messagesSentCount;
   }
 
   /**
@@ -172,8 +176,26 @@ public class PartitionStats implements Writable {
    *
    * @return Messages sent count.
    */
-  public long getMessagesSentCount() {
-    return messagesSentCount;
+  public long getMessagesSentToItselfCount() {
+    return messagesSentToItselfCount;
+  }
+
+  /**
+   * Add messages to the messages sent count.
+   *
+   * @param messagesSentCount Number of messages to add.
+   */
+  public void addMessagesSentToOtherWorkerCount(long messagesSentCount) {
+    this.messagesSentToOtherWorkerCount += messagesSentCount;
+  }
+
+  /**
+   * Get the messages sent count.
+   *
+   * @return Messages sent count.
+   */
+  public long getMessagesSentToOtherWorkerCount() {
+    return messagesSentToOtherWorkerCount;
   }
 
   /**
@@ -201,7 +223,8 @@ public class PartitionStats implements Writable {
     finishedVertexCount = input.readLong();
     computedVertexCount = input.readLong();
     edgeCount = input.readLong();
-    messagesSentCount = input.readLong();
+    messagesSentToOtherWorkerCount = input.readLong();
+    messagesSentToItselfCount = input.readLong();
     messageBytesSentCount = input.readLong();
   }
 
@@ -212,7 +235,8 @@ public class PartitionStats implements Writable {
     output.writeLong(finishedVertexCount);
     output.writeLong(computedVertexCount);
     output.writeLong(edgeCount);
-    output.writeLong(messagesSentCount);
+    output.writeLong(messagesSentToOtherWorkerCount);
+    output.writeLong(messagesSentToItselfCount);
     output.writeLong(messageBytesSentCount);
   }
 
@@ -220,8 +244,9 @@ public class PartitionStats implements Writable {
   public String toString() {
     return "(id=" + partitionId + ",vtx=" + vertexCount + ",finVtx=" +
         finishedVertexCount + ",computedVtx=" + computedVertexCount +
-            ",edges=" + edgeCount + ",msgsSent=" +
-        messagesSentCount + ",msgBytesSent=" +
+            ",edges=" + edgeCount + ",msgsSentToOther=" +
+        messagesSentToOtherWorkerCount + "msgsSentToItself" +
+        messagesSentToItselfCount + ",msgBytesSent=" +
           messageBytesSentCount + ")";
   }
 }

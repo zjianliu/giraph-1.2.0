@@ -52,8 +52,10 @@ public class SendMessageCache<I extends WritableComparable, M extends Writable>
   /** Class logger */
   private static final Logger LOG =
       Logger.getLogger(SendMessageCache.class);
-  /** Messages sent during the last superstep */
-  protected long totalMsgsSentInSuperstep = 0;
+  /** Messages sent to the other worker during the last superstep */
+  protected long totalMsgsSentToOtherWorkerInSuperstep = 0;
+  /** Messages sent to the other worker during the last superstep */
+  protected long totalMsgsSentToSelfInSuperstep = 0;
   /** Message bytes sent during the last superstep */
   protected long totalMsgBytesSentInSuperstep = 0;
   /** Max message size sent to a worker */
@@ -154,7 +156,9 @@ public class SendMessageCache<I extends WritableComparable, M extends Writable>
         ") to " + destVertexId + " on worker " + workerInfo);
     }
     if (!getServiceWorker().getPartitionStore().hasPartition(partitionId)) {
-      ++totalMsgsSentInSuperstep;
+      ++totalMsgsSentToOtherWorkerInSuperstep;
+    } else {
+      ++totalMsgsSentToSelfInSuperstep;
     }
     // Add the message to the cache
     int workerMessageSize = addMessage(
@@ -256,11 +260,22 @@ public class SendMessageCache<I extends WritableComparable, M extends Writable>
   /**
    * Reset the message count per superstep.
    *
+   * @return The message count sent to other worker in last superstep
+   */
+  public long resetMessageToOtherWorkerCount() {
+    long messagesSentInSuperstep = totalMsgsSentToOtherWorkerInSuperstep;
+    totalMsgsSentToOtherWorkerInSuperstep = 0;
+    return messagesSentInSuperstep;
+  }
+
+  /**
+   * Reset the message count per superstep.
+   *
    * @return The message count sent in last superstep
    */
-  public long resetMessageCount() {
-    long messagesSentInSuperstep = totalMsgsSentInSuperstep;
-    totalMsgsSentInSuperstep = 0;
+  public long resetMessageToItselfCount() {
+    long messagesSentInSuperstep = totalMsgsSentToSelfInSuperstep;
+    totalMsgsSentToSelfInSuperstep = 0;
     return messagesSentInSuperstep;
   }
 

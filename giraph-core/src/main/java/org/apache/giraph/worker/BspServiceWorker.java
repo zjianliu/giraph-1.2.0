@@ -603,6 +603,7 @@ else[HADOOP_NON_SECURE]*/
               0,
               0,
               partitionStore.getPartitionEdgeCount(partitionId),
+              0,
               0, 0);
       partitionStatsList.add(partitionStats);
     }
@@ -762,10 +763,12 @@ else[HADOOP_NON_SECURE]*/
     superstepStatisticMap.put(getSuperstep(), partitionStatsList);
 
     long workerSentMessages = 0;
+    long workerSentToItselfMessages = 0;
     long workerSentMessageBytes = 0;
     long localVertices = 0;
     for (PartitionStats partitionStats : partitionStatsList) {
-      workerSentMessages += partitionStats.getMessagesSentCount();
+      workerSentMessages += partitionStats.getMessagesSentToOtherWorkerCount();
+      workerSentToItselfMessages += partitionStats.getMessagesSentToItselfCount();
       workerSentMessageBytes += partitionStats.getMessageBytesSentCount();
       localVertices += partitionStats.getVertexCount();
     }
@@ -784,7 +787,8 @@ else[HADOOP_NON_SECURE]*/
 
     if (LOG.isInfoEnabled()) {
       LOG.info("finishSuperstep: Superstep " + getSuperstep() +
-          ", messages = " + workerSentMessages + " " +
+          ", messages sent to other worker = " + workerSentMessages + " " +
+          ", messages sent to itself = " + workerSentToItselfMessages + " " +
           ", message bytes = " + workerSentMessageBytes + " , " +
           MemoryUtils.getRuntimeMemoryStats());
     }
@@ -1838,23 +1842,27 @@ else[HADOOP_NON_SECURE]*/
   @Override
   public void writeSuperstepStatsIntoHDFS() throws IOException{
     StringBuffer output = new StringBuffer();
-    output.append("\nsuperstep\tSentMessages\tSentMessageBytes\tlocalVertices\tfinishedVertices\tcomputedVertices\n");
+    output.append("\nsuperstep\tSentMessagesToOther\tSentMessagesToItSelf\t" +
+            "SentMessageBytes\tlocalVertices\tfinishedVertices\tcomputedVertices\n");
     for (Entry<Long, List<PartitionStats>> entry : superstepStatisticMap.entrySet()){
       long superstep = entry.getKey().longValue();
 
       long workerSentMessages = 0;
+      long wokerSentMessagesToItself = 0;
       long workerSentMessageBytes = 0;
       long localVertices = 0;
       long finishedVertices = 0;
       long computedVertices = 0;
       for (PartitionStats partitionStats: entry.getValue()){
-        workerSentMessages += partitionStats.getMessagesSentCount();
+        workerSentMessages += partitionStats.getMessagesSentToOtherWorkerCount();
+        wokerSentMessagesToItself += partitionStats.getMessagesSentToItselfCount();
         workerSentMessageBytes += partitionStats.getMessageBytesSentCount();
         localVertices += partitionStats.getVertexCount();
         finishedVertices += partitionStats.getFinishedVertexCount();
         computedVertices += partitionStats.getComputedVertexCount();
       }
-      output.append(superstep + "\t" + workerSentMessages + "\t" + workerSentMessageBytes + "\t"
+      output.append(superstep + "\t" + workerSentMessages + "\t" + wokerSentMessagesToItself + "\t"
+              + workerSentMessageBytes + "\t"
                   + localVertices + "\t" + finishedVertices + "\t" + computedVertices + "\n");
     }
 

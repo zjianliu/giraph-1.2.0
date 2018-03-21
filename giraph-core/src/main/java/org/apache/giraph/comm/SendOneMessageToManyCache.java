@@ -248,7 +248,7 @@ public class SendOneMessageToManyCache<I extends WritableComparable,
             message.toString() + ") to one target in  worker " +
             workerInfoList[i]);
         }
-        ++totalMsgsSentInSuperstep;
+        ++totalMsgsSentToOtherWorkerInSuperstep;
         if (workerMessageSize >= maxMessagesSizePerWorker) {
           PairList<Integer, VertexIdMessages<I, M>>
             workerMessages = removeWorkerMessages(workerInfoList[i]);
@@ -270,7 +270,7 @@ public class SendOneMessageToManyCache<I extends WritableComparable,
             message.toString() + ") to all targets in worker" +
             workerInfoList[i]);
         }
-        totalMsgsSentInSuperstep += idCounter[i];
+        totalMsgsSentToOtherWorkerInSuperstep += idCounter[i];
         if (workerMessageSize >= maxMessagesSizePerWorker) {
           ByteArrayOneMessageToManyIds<I, M> workerMsgVids =
             removeWorkerMsgVids(workerInfoList[i]);

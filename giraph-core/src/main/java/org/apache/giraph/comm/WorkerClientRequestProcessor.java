@@ -138,11 +138,18 @@ public interface WorkerClientRequestProcessor<I extends WritableComparable,
   void flush() throws IOException;
 
   /**
-   * Get the messages sent during this superstep and clear them.
+   * Get the messages sent to the other worker during this superstep and clear them.
    *
    * @return Number of messages sent before the reset.
    */
-  long resetMessageCount();
+  long resetMessageToOtherWorkerCount();
+
+  /**
+   * Get the messages sent to itself during this superstep and clear them.
+   *
+   * @return Number of messages sent before the reset.
+   */
+  long resetMessageToItselfCount();
 
   /**
    * Get the message bytes sent during this superstep and clear them.

@@ -187,9 +187,11 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
         PartitionStats partitionStats =
             computePartition(computation, partition, oocEngine);
         partitionStatsList.add(partitionStats);
-        long partitionMsgs = workerClientRequestProcessor.resetMessageCount();
-        partitionStats.addMessagesSentCount(partitionMsgs);
-        messagesSentCounter.inc(partitionMsgs);
+        long partitionMsgsToOtherWorker = workerClientRequestProcessor.resetMessageToOtherWorkerCount();
+        long partitionMsgsToItself = workerClientRequestProcessor.resetMessageToItselfCount();
+        partitionStats.addMessagesSentToOtherWorkerCount(partitionMsgsToOtherWorker);
+        partitionStats.addMessagesSentToItselfCount(partitionMsgsToItself);
+        messagesSentCounter.inc(partitionMsgsToOtherWorker);
         long partitionMsgBytes =
           workerClientRequestProcessor.resetMessageBytesCount();
         partitionStats.addMessageBytesSentCount(partitionMsgBytes);
@@ -269,7 +271,7 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
       Partition<I, V, E> partition, OutOfCoreEngine oocEngine)
       throws IOException, InterruptedException {
     PartitionStats partitionStats =
-        new PartitionStats(partition.getId(), 0,0, 0, 0, 0, 0);
+        new PartitionStats(partition.getId(), 0, 0, 0, 0, 0, 0, 0);
     long verticesComputedProgress = 0;
     // Make sure this is thread-safe across runs
     synchronized (partition) {
