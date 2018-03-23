@@ -151,6 +151,10 @@ public class BspServiceWorker<I extends WritableComparable,
   private List<WorkerInfo> workerInfoList = Lists.newArrayList();
   /** Statistics of the status of  partitions of a worker */
   private final Map<Long, List<PartitionStats>> superstepStatisticMap = new TreeMap<>();
+  /** The start time of the current superstep on this worer */
+  private long startSuperstepMillis;
+  /** The execution time of the current superstep on this worker */
+  private Map<Long, Long> superstepSecMap = new TreeMap<>();
   /** Have the partition exchange children (workers) changed? */
   private final BspEvent partitionExchangeChildrenChanged;
   /** Addresses and partitions transfer */
@@ -700,6 +704,8 @@ else[HADOOP_NON_SECURE]*/
     // 2. Register my health for the next superstep.
     // 3. Wait until the partition assignment is complete and get it
     // 4. Get the aggregator values from the previous superstep
+    startSuperstepMillis = System.currentTimeMillis();
+
     if (getSuperstep() != INPUT_SUPERSTEP) {
       workerServer.prepareSuperstep();//这里对应上面列表1
     }
@@ -759,6 +765,9 @@ else[HADOOP_NON_SECURE]*/
     waitForRequestsToFinish();
 
     getGraphTaskManager().notifyFinishedCommunication();
+
+    long time = System.currentTimeMillis() - startSuperstepMillis;
+    superstepSecMap.put(getSuperstep(), time);
 
     superstepStatisticMap.put(getSuperstep(), partitionStatsList);
 
@@ -1843,7 +1852,8 @@ else[HADOOP_NON_SECURE]*/
   public void writeSuperstepStatsIntoHDFS() throws IOException{
     StringBuffer output = new StringBuffer();
     output.append("\nsuperstep\tSentMessagesToOther\tSentMessagesToItSelf\t" +
-            "SentMessageBytes\tlocalVertices\tfinishedVertices\tcomputedVertices\n");
+            "SentMessageBytes\tlocalVertices\tfinishedVertices\tcomputedVertices\tsuperstepTime\n");
+
     for (Entry<Long, List<PartitionStats>> entry : superstepStatisticMap.entrySet()){
       long superstep = entry.getKey().longValue();
 
@@ -1861,9 +1871,11 @@ else[HADOOP_NON_SECURE]*/
         finishedVertices += partitionStats.getFinishedVertexCount();
         computedVertices += partitionStats.getComputedVertexCount();
       }
+      long superstepTime = superstepSecMap.get(superstep);
       output.append(superstep + "\t" + workerSentMessages + "\t" + wokerSentMessagesToItself + "\t"
-              + workerSentMessageBytes + "\t"
-                  + localVertices + "\t" + finishedVertices + "\t" + computedVertices + "\n");
+              + workerSentMessageBytes + "\t" + localVertices + "\t"
+              + finishedVertices + "\t" + computedVertices + "\t"
+              + superstepTime / 1000d + "\n");
     }
 
     ImmutableClassesGiraphConfiguration conf = getConfiguration();
