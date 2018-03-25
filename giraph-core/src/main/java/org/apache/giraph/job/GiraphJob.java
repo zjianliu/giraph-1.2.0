@@ -196,8 +196,8 @@ public class GiraphJob {
    */
   public final boolean run(boolean verbose)
     throws IOException, InterruptedException, ClassNotFoundException {
-    // Most users won't hit this hopefully and can set it higher if desired
-    setIntConfIfDefault("mapreduce.job.counters.limit", 512);
+    // Most users won't hit this hopefully and can set ifdt higher if desired
+    setIntConfIfDefault("mapreduce.job.counters.limit", 4096);
 
     // Capacity scheduler-specific settings.  These should be enough for
     // a reasonable Giraph job

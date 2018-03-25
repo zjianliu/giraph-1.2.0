@@ -27,6 +27,7 @@ import org.apache.giraph.comm.WorkerClientRequestProcessor;
 import org.apache.giraph.comm.messages.MessageStore;
 import org.apache.giraph.comm.netty.NettyWorkerClientRequestProcessor;
 import org.apache.giraph.conf.ImmutableClassesGiraphConfiguration;
+import org.apache.giraph.edge.Edge;
 import org.apache.giraph.io.SimpleVertexWriter;
 import org.apache.giraph.metrics.GiraphMetrics;
 import org.apache.giraph.metrics.MetricNames;
@@ -276,6 +277,9 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
     // Make sure this is thread-safe across runs
     synchronized (partition) {
       int count = 0;
+      int indegreeCount = 0;
+      int indegreeEdge = 0;
+      int indegreeCrossPartition = 0;
       for (Vertex<I, V, E> vertex : partition) {
         // If out-of-core mechanism is used, check whether this thread
         // can stay active or it should temporarily suspend and stop
@@ -319,6 +323,22 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
           WorkerProgress.get().addVerticesComputed(verticesComputedProgress);
           verticesComputedProgress = 0;
         }
+
+        //add some codes to get the statistics of the partition
+        for (M1 message : messages){
+          indegreeCount++;
+        }
+        Iterable<Edge<I, E>> edges = vertex.getEdges();
+        for (Edge<I, E> edge : edges){
+          I id = edge.getTargetVertexId();
+          if (partition.getVertex(id) != null){
+            indegreeEdge++;
+          }
+        }
+      }
+      indegreeCrossPartition = indegreeCount - indegreeEdge;
+      if (LOG.isInfoEnabled()){
+        LOG.info("Partition statistics: indegreeCrossPartition is " + indegreeCrossPartition);
       }
 
       messageStore.clearPartition(partition.getId());
