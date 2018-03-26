@@ -279,6 +279,7 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
       int count = 0;
       int indegreeCount = 0;
       int indegreeEdge = 0;
+      int outdegreeEdge = 0;
       int indegreeCrossPartition = 0;
       for (Vertex<I, V, E> vertex : partition) {
         // If out-of-core mechanism is used, check whether this thread
@@ -333,12 +334,24 @@ public class ComputeCallable<I extends WritableComparable, V extends Writable,
           I id = edge.getTargetVertexId();
           if (partition.getVertex(id) != null){
             indegreeEdge++;
+          } else {
+            outdegreeEdge++;
           }
         }
       }
       indegreeCrossPartition = indegreeCount - indegreeEdge;
       if (LOG.isInfoEnabled()){
-        LOG.info("Partition statistics: indegreeCrossPartition is " + indegreeCrossPartition);
+        LOG.info("Partition statistics: indegreeCrossPartition is "
+                + indegreeCrossPartition +
+                 ", the outdegreeCrossPartition is "
+                + (partitionStats.getEdgeCount() - indegreeEdge)
+                + ", the number of edges in this partition is "
+                + indegreeEdge
+                + ", the number of vertex in this partition is "
+                + partitionStats.getVertexCount()
+                + ", the density of this partition is "
+                + partitionStats.getVertexCount()/(indegreeEdge * indegreeEdge));
+        LOG.info("outdegreeEdge is " + outdegreeEdge);
       }
 
       messageStore.clearPartition(partition.getId());
